@@ -1,54 +1,50 @@
---[[
+--[[ 
+    OceanUI 🌊
+    Linoria-style | Rounded | Toggles + Keybinds
+    Draggable, Tab system
+]] 
 
-    OceanUI 🌊 2
-    Open Source | Linoria-Style | Rounded
-    Stable Base Library
-
-]]
-
--- ===== SETUP =====
-getgenv().GuiName = getgenv().GuiName or "Ocean GUI"
-
+-- SERVICES
 local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-
+local UIS = game:GetService("UserInputService")
 local LP = Players.LocalPlayer
 
--- ===== LIB =====
-local Library = {}
-Library.__index = Library
-
+-- GLOBALS
 getgenv().Toggles = {}
 getgenv().Options = {}
+getgenv().GuiName = getgenv().GuiName or "Ocean GUI"
 
--- ===== THEME =====
+-- THEME
 local Theme = {
     Background = Color3.fromRGB(14,18,26),
     Section = Color3.fromRGB(18,24,34),
     Accent = Color3.fromRGB(0,170,255),
     Text = Color3.fromRGB(235,240,245),
+    Muted = Color3.fromRGB(120,130,145),
     Stroke = Color3.fromRGB(40,55,80)
 }
 
--- ===== UTILS =====
-local function Round(o,r)
+-- UTILS
+local function Round(obj,r)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0,r)
-    c.Parent = o
+    c.Parent = obj
 end
-
-local function Stroke(o)
+local function Stroke(obj)
     local s = Instance.new("UIStroke")
-    s.Thickness = 1
     s.Color = Theme.Stroke
-    s.Parent = o
+    s.Thickness = 1
+    s.Parent = obj
 end
 
--- ===== CREATE WINDOW =====
+-- LIB
+local Library = {}
+Library.__index = Library
+
+-- CREATE WINDOW
 function Library:CreateWindow(info)
     info = info or {}
-
     local Window = {}
     Window.Tabs = {}
     Window.Open = true
@@ -85,6 +81,13 @@ function Library:CreateWindow(info)
     Title.Size = UDim2.new(1,-20,1,0)
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.Parent = Header
+
+    -- TAB DOTS HOLDER
+    local TabHolder = Instance.new("Frame")
+    TabHolder.Size = UDim2.new(0,100,0,20)
+    TabHolder.Position = UDim2.new(1,-110,0,12)
+    TabHolder.BackgroundTransparency = 1
+    TabHolder.Parent = Header
 
     -- DRAG
     do
@@ -130,35 +133,34 @@ function Library:CreateWindow(info)
     -- ===== ADD TAB =====
     function Window:AddTab(name)
         local Tab = {}
-
         local Holder = Instance.new("Frame")
         Holder.Size = UDim2.fromScale(1,1)
         Holder.Visible = false
         Holder.BackgroundTransparency = 1
         Holder.Parent = Content
 
-        local LeftCol = Instance.new("Frame")
-        LeftCol.Size = UDim2.new(0.5,-5,1,0)
-        LeftCol.BackgroundTransparency = 1
-        LeftCol.Parent = Holder
+        -- left/right columns
+        local Left = Instance.new("Frame")
+        Left.Size = UDim2.new(0.5,-5,1,0)
+        Left.BackgroundTransparency = 1
+        Left.Parent = Holder
+        local Right = Instance.new("Frame")
+        Right.Position = UDim2.new(0.5,5,0,0)
+        Right.Size = UDim2.new(0.5,-5,1,0)
+        Right.BackgroundTransparency = 1
+        Right.Parent = Holder
 
-        local RightCol = Instance.new("Frame")
-        RightCol.Position = UDim2.new(0.5,5,0,0)
-        RightCol.Size = UDim2.new(0.5,-5,1,0)
-        RightCol.BackgroundTransparency = 1
-        RightCol.Parent = Holder
-
-        local function columnLayout(col)
+        local function layout(col)
             local l = Instance.new("UIListLayout")
             l.Padding = UDim.new(0,10)
             l.Parent = col
         end
-        columnLayout(LeftCol)
-        columnLayout(RightCol)
+        layout(Left)
+        layout(Right)
 
+        -- GROUPBOX CREATOR
         local function createGroupbox(parent,title)
             local Group = {}
-
             local Box = Instance.new("Frame")
             Box.Size = UDim2.fromOffset(parent.AbsoluteSize.X,40)
             Box.BackgroundColor3 = Theme.Section
@@ -173,7 +175,7 @@ function Library:CreateWindow(info)
             Label.TextColor3 = Theme.Text
             Label.BackgroundTransparency = 1
             Label.Position = UDim2.fromOffset(12,6)
-            Label.Size = UDim2.new(1,-24,24)
+            Label.Size = UDim2.new(1,-24,0,24)
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.Parent = Box
 
@@ -182,7 +184,7 @@ function Library:CreateWindow(info)
             List.Parent = Box
 
             List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                Box.Size = UDim2.new(1,0,0,List.AbsoluteContentSize.Y + 12)
+                Box.Size = UDim2.new(1,0,0,List.AbsoluteContentSize.Y+12)
             end)
 
             -- TOGGLE + KEYBIND
@@ -210,17 +212,6 @@ function Library:CreateWindow(info)
                 Txt.TextXAlignment = Enum.TextXAlignment.Left
                 Txt.Parent = Btn
 
-                local Key = Instance.new("TextLabel")
-                Key.Text = opts.Keybind and opts.Keybind.Name or ""
-                Key.Font = Enum.Font.Gotham
-                Key.TextSize = 11
-                Key.TextColor3 = Theme.Muted
-                Key.BackgroundTransparency = 1
-                Key.Position = UDim2.new(1,-80,0,0)
-                Key.Size = UDim2.fromOffset(40,36)
-                Key.TextXAlignment = Enum.TextXAlignment.Right
-                Key.Parent = Btn
-
                 local Ind = Instance.new("Frame")
                 Ind.Size = UDim2.fromOffset(20,20)
                 Ind.Position = UDim2.new(1,-32,0.5,-10)
@@ -230,9 +221,7 @@ function Library:CreateWindow(info)
 
                 function T:SetValue(v)
                     T.Value = v
-                    TweenService:Create(Ind,TweenInfo.new(0.15),{
-                        BackgroundColor3 = v and Theme.Accent or Theme.Stroke
-                    }):Play()
+                    TweenService:Create(Ind,TweenInfo.new(0.15),{BackgroundColor3=v and Theme.Accent or Theme.Stroke}):Play()
                     if opts.Callback then opts.Callback(v) end
                 end
 
@@ -240,12 +229,34 @@ function Library:CreateWindow(info)
                     T:SetValue(not T.Value)
                 end)
 
-                if opts.Keybind then
+                -- ADD LINORIA STYLE KEYPICKER
+                function T:AddKeyPicker(name,keyinfo)
+                    keyinfo = keyinfo or {}
+                    local kp = {}
+                    kp.Value = keyinfo.Default or ""
+                    kp.Mode = keyinfo.Mode or "Toggle"
+                    kp.SyncToggleState = keyinfo.SyncToggleState or false
+
+                    local KeyLbl = Instance.new("TextLabel")
+                    KeyLbl.Text = kp.Value.Name or ""
+                    KeyLbl.Font = Enum.Font.Gotham
+                    KeyLbl.TextSize = 11
+                    KeyLbl.TextColor3 = Theme.Muted
+                    KeyLbl.BackgroundTransparency = 1
+                    KeyLbl.Position = UDim2.new(1,-80,0,0)
+                    KeyLbl.Size = UDim2.fromOffset(60,36)
+                    KeyLbl.TextXAlignment = Enum.TextXAlignment.Right
+                    KeyLbl.Parent = Btn
+
                     UIS.InputBegan:Connect(function(i,gp)
-                        if not gp and i.KeyCode == opts.Keybind then
-                            T:SetValue(not T.Value)
+                        if not gp and i.KeyCode == kp.Value then
+                            if kp.Mode == "Toggle" then
+                                T:SetValue(not T.Value)
+                            end
                         end
                     end)
+
+                    return kp
                 end
 
                 return T
@@ -255,12 +266,26 @@ function Library:CreateWindow(info)
         end
 
         function Tab:AddLeftGroupbox(name)
-            return createGroupbox(LeftCol,name)
+            return createGroupbox(Left,name)
         end
 
         function Tab:AddRightGroupbox(name)
-            return createGroupbox(RightCol,name)
+            return createGroupbox(Right,name)
         end
+
+        -- TAB DOT
+        local dot = Instance.new("TextButton")
+        dot.Size = UDim2.fromOffset(12,12)
+        dot.BackgroundColor3 = Theme.Accent
+        dot.Text = ""
+        dot.Parent = TabHolder
+        Round(dot,6)
+        dot.MouseButton1Click:Connect(function()
+            for _,v in pairs(Content:GetChildren()) do
+                v.Visible = false
+            end
+            Holder.Visible = true
+        end)
 
         Window.Tabs[name] = Holder
         if not Window.Current then
