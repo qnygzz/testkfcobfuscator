@@ -1,36 +1,38 @@
---[[ 
+--[[
+
     OceanUI 🌊
-    Linoria-style | Rounded | Toggles + Keybinds
-    Draggable, Tab system
-]] 
+    Open Source | Rounded | Linoria-Style API
+    Made for learning & extending
+
+]]--
 
 -- SERVICES
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local UIS = game:GetService("UserInputService")
-local LP = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
 
--- GLOBALS
+-- GLOBAL TABLES (Linoria style)
 getgenv().Toggles = {}
 getgenv().Options = {}
-getgenv().GuiName = getgenv().GuiName or "Ocean GUI"
 
 -- THEME
 local Theme = {
-    Background = Color3.fromRGB(14,18,26),
-    Section = Color3.fromRGB(18,24,34),
-    Accent = Color3.fromRGB(0,170,255),
-    Text = Color3.fromRGB(235,240,245),
-    Muted = Color3.fromRGB(120,130,145),
-    Stroke = Color3.fromRGB(40,55,80)
+    Background = Color3.fromRGB(12, 18, 28),
+    Section = Color3.fromRGB(16, 25, 38),
+    Accent = Color3.fromRGB(0, 170, 255),
+    Text = Color3.fromRGB(235, 240, 245),
+    Muted = Color3.fromRGB(120, 130, 145),
+    Stroke = Color3.fromRGB(35, 55, 80),
 }
 
 -- UTILS
-local function Round(obj,r)
+local function Round(obj, r)
     local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0,r)
+    c.CornerRadius = UDim.new(0, r)
     c.Parent = obj
 end
+
 local function Stroke(obj)
     local s = Instance.new("UIStroke")
     s.Color = Theme.Stroke
@@ -38,7 +40,44 @@ local function Stroke(obj)
     s.Parent = obj
 end
 
--- LIB
+local function SafeColor(c, fallback)
+    return c or fallback or Color3.fromRGB(255,255,255)
+end
+
+-- DRAG FUNCTION
+local function MakeDraggable(frame)
+    local dragging, dragInput, dragStart, startPos
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+-- MAIN LIB
 local Library = {}
 Library.__index = Library
 
@@ -47,250 +86,200 @@ function Library:CreateWindow(info)
     info = info or {}
     local Window = {}
     Window.Tabs = {}
-    Window.Open = true
-    Window.MenuKey = Enum.KeyCode.RightShift
 
     -- GUI
     local Gui = Instance.new("ScreenGui")
-    Gui.Name = getgenv().GuiName
-    Gui.ResetOnSpawn = false
-    Gui.Parent = LP:WaitForChild("PlayerGui")
+    Gui.Name = getgenv().GuiName or "OceanGUI"
+    Gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
+    -- MAIN FRAME
     local Main = Instance.new("Frame")
-    Main.Size = UDim2.fromOffset(640,420)
-    Main.Position = UDim2.fromScale(0.5,0.5)
-    Main.AnchorPoint = Vector2.new(0.5,0.5)
+    Main.Size = UDim2.fromOffset(560, 400)
+    Main.Position = UDim2.fromScale(0.5, 0.5)
+    Main.AnchorPoint = Vector2.new(0.5, 0.5)
     Main.BackgroundColor3 = Theme.Background
     Main.Parent = Gui
-    Round(Main,16)
+    Round(Main, 18)
     Stroke(Main)
+    MakeDraggable(Main)
 
     -- HEADER
     local Header = Instance.new("Frame")
-    Header.Size = UDim2.new(1,0,0,42)
+    Header.Size = UDim2.new(1, 0, 0, 48)
     Header.BackgroundTransparency = 1
     Header.Parent = Main
 
     local Title = Instance.new("TextLabel")
-    Title.Text = info.Title or getgenv().GuiName
+    Title.Text = info.Title or "OceanUI"
     Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 17
-    Title.TextColor3 = Theme.Text
+    Title.TextSize = 18
+    Title.TextColor3 = SafeColor(Theme.Text)
     Title.BackgroundTransparency = 1
-    Title.Position = UDim2.fromOffset(14,0)
-    Title.Size = UDim2.new(1,-20,1,0)
+    Title.Position = UDim2.fromOffset(14, 0)
+    Title.Size = UDim2.new(1, -20, 1, 0)
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.Parent = Header
 
-    -- TAB DOTS HOLDER
-    local TabHolder = Instance.new("Frame")
-    TabHolder.Size = UDim2.new(0,100,0,20)
-    TabHolder.Position = UDim2.new(1,-110,0,12)
-    TabHolder.BackgroundTransparency = 1
-    TabHolder.Parent = Header
-
-    -- DRAG
-    do
-        local dragging, startPos, dragStart
-        Header.InputBegan:Connect(function(i)
-            if i.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = true
-                dragStart = i.Position
-                startPos = Main.Position
-                i.Changed:Connect(function()
-                    if i.UserInputState == Enum.UserInputState.End then
-                        dragging = false
-                    end
-                end)
-            end
-        end)
-        Header.InputChanged:Connect(function(i)
-            if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-                local d = i.Position - dragStart
-                Main.Position = UDim2.new(
-                    startPos.X.Scale,startPos.X.Offset+d.X,
-                    startPos.Y.Scale,startPos.Y.Offset+d.Y
-                )
-            end
-        end)
-    end
-
-    -- TOGGLE MENU
-    UIS.InputBegan:Connect(function(i,gp)
-        if not gp and i.KeyCode == Window.MenuKey then
-            Window.Open = not Window.Open
-            Main.Visible = Window.Open
-        end
-    end)
+    local Version = Instance.new("TextLabel")
+    Version.Text = info.Version or ""
+    Version.Font = Enum.Font.Gotham
+    Version.TextSize = 12
+    Version.TextColor3 = SafeColor(info.VersionColor, Theme.Muted)
+    Version.BackgroundTransparency = 1
+    Version.Position = UDim2.new(1, -80, 0, 0)
+    Version.Size = UDim2.fromOffset(70, 48)
+    Version.TextXAlignment = Enum.TextXAlignment.Right
+    Version.Parent = Header
 
     -- CONTENT
     local Content = Instance.new("Frame")
-    Content.Position = UDim2.fromOffset(10,50)
-    Content.Size = UDim2.new(1,-20,1,-60)
+    Content.Size = UDim2.new(1, -20, 1, -58)
+    Content.Position = UDim2.fromOffset(10, 52)
     Content.BackgroundTransparency = 1
     Content.Parent = Main
 
-    -- ===== ADD TAB =====
+    -- TAB MANAGEMENT
     function Window:AddTab(name)
         local Tab = {}
         local Holder = Instance.new("Frame")
-        Holder.Size = UDim2.fromScale(1,1)
-        Holder.Visible = false
+        Holder.Size = UDim2.fromScale(1, 1)
         Holder.BackgroundTransparency = 1
+        Holder.Visible = false
         Holder.Parent = Content
-
-        -- left/right columns
-        local Left = Instance.new("Frame")
-        Left.Size = UDim2.new(0.5,-5,1,0)
-        Left.BackgroundTransparency = 1
-        Left.Parent = Holder
-        local Right = Instance.new("Frame")
-        Right.Position = UDim2.new(0.5,5,0,0)
-        Right.Size = UDim2.new(0.5,-5,1,0)
-        Right.BackgroundTransparency = 1
-        Right.Parent = Holder
-
-        local function layout(col)
-            local l = Instance.new("UIListLayout")
-            l.Padding = UDim.new(0,10)
-            l.Parent = col
+        Window.Tabs[name] = Tab
+        if not Window.CurrentTab then
+            Window.CurrentTab = Holder
+            Holder.Visible = true
         end
-        layout(Left)
-        layout(Right)
+
+        -- TAB ADD LEFT GROUPBOX
+        function Tab:AddLeftGroupbox(title)
+            return self:AddGroupbox(title, Holder, "Left")
+        end
+
+        -- TAB ADD RIGHT GROUPBOX
+        function Tab:AddRightGroupbox(title)
+            return self:AddGroupbox(title, Holder, "Right")
+        end
 
         -- GROUPBOX CREATOR
-        local function createGroupbox(parent,title)
-            local Group = {}
+        function Tab:AddGroupbox(title, parentFrame, side)
+            local Groupbox = {}
             local Box = Instance.new("Frame")
-            Box.Size = UDim2.fromOffset(parent.AbsoluteSize.X,40)
+            Box.Size = UDim2.fromOffset(260, 40)
             Box.BackgroundColor3 = Theme.Section
-            Box.Parent = parent
-            Round(Box,14)
+            Box.Parent = parentFrame
+            Round(Box, 14)
             Stroke(Box)
 
             local Label = Instance.new("TextLabel")
             Label.Text = title
             Label.Font = Enum.Font.GothamBold
             Label.TextSize = 14
-            Label.TextColor3 = Theme.Text
+            Label.TextColor3 = SafeColor(Theme.Text)
             Label.BackgroundTransparency = 1
-            Label.Position = UDim2.fromOffset(12,6)
-            Label.Size = UDim2.new(1,-24,0,24)
+            Label.Position = UDim2.fromOffset(12, 6)
+            Label.Size = UDim2.new(1, -24, 0, 24)
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.Parent = Box
 
             local List = Instance.new("UIListLayout")
-            List.Padding = UDim.new(0,8)
+            List.Padding = UDim.new(0, 8)
             List.Parent = Box
+            List.HorizontalAlignment = Enum.HorizontalAlignment.Left
+            List.VerticalAlignment = Enum.VerticalAlignment.Top
 
             List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                Box.Size = UDim2.new(1,0,0,List.AbsoluteContentSize.Y+12)
+                Box.Size = UDim2.fromOffset(260, List.AbsoluteContentSize.Y + 14)
             end)
 
-            -- TOGGLE + KEYBIND
-            function Group:AddToggle(flag,opts)
+            -- TOGGLE
+            function Groupbox:AddToggle(flag, opts)
                 opts = opts or {}
-                local T = {Value = opts.Default or false}
-                Toggles[flag] = T
+                local Toggle = {}
+                Toggle.Value = opts.Default or false
+                Toggles[flag] = Toggle
 
                 local Btn = Instance.new("TextButton")
-                Btn.Size = UDim2.new(1,-16,0,36)
+                Btn.Size = UDim2.new(1, -16, 0, 36)
                 Btn.BackgroundColor3 = Theme.Background
                 Btn.Text = ""
+                Btn.AutoButtonColor = false
                 Btn.Parent = Box
-                Round(Btn,10)
+                Round(Btn, 10)
                 Stroke(Btn)
 
-                local Txt = Instance.new("TextLabel")
-                Txt.Text = opts.Text or flag
-                Txt.Font = Enum.Font.Gotham
-                Txt.TextSize = 13
-                Txt.TextColor3 = Theme.Text
-                Txt.BackgroundTransparency = 1
-                Txt.Position = UDim2.fromOffset(12,0)
-                Txt.Size = UDim2.new(1,-90,1,0)
-                Txt.TextXAlignment = Enum.TextXAlignment.Left
-                Txt.Parent = Btn
+                local Text = Instance.new("TextLabel")
+                Text.Text = opts.Text or flag
+                Text.Font = Enum.Font.Gotham
+                Text.TextSize = 13
+                Text.TextColor3 = SafeColor(Theme.Text)
+                Text.BackgroundTransparency = 1
+                Text.Position = UDim2.fromOffset(12, 0)
+                Text.Size = UDim2.new(1, -60, 1, 0)
+                Text.TextXAlignment = Enum.TextXAlignment.Left
+                Text.Parent = Btn
 
-                local Ind = Instance.new("Frame")
-                Ind.Size = UDim2.fromOffset(20,20)
-                Ind.Position = UDim2.new(1,-32,0.5,-10)
-                Ind.BackgroundColor3 = T.Value and Theme.Accent or Theme.Stroke
-                Ind.Parent = Btn
-                Round(Ind,6)
+                local Indicator = Instance.new("Frame")
+                Indicator.Size = UDim2.fromOffset(22, 22)
+                Indicator.Position = UDim2.new(1, -32, 0.5, -11)
+                Indicator.BackgroundColor3 = Toggle.Value and Theme.Accent or Theme.Stroke
+                Indicator.Parent = Btn
+                Round(Indicator, 6)
 
-                function T:SetValue(v)
-                    T.Value = v
-                    TweenService:Create(Ind,TweenInfo.new(0.15),{BackgroundColor3=v and Theme.Accent or Theme.Stroke}):Play()
+                function Toggle:SetValue(v)
+                    Toggle.Value = v
+                    TweenService:Create(
+                        Indicator,
+                        TweenInfo.new(0.15),
+                        { BackgroundColor3 = v and Theme.Accent or Theme.Stroke }
+                    ):Play()
                     if opts.Callback then opts.Callback(v) end
                 end
 
-                Btn.MouseButton1Click:Connect(function()
-                    T:SetValue(not T.Value)
-                end)
-
-                -- ADD LINORIA STYLE KEYPICKER
-                function T:AddKeyPicker(name,keyinfo)
-                    keyinfo = keyinfo or {}
-                    local kp = {}
-                    kp.Value = keyinfo.Default or ""
-                    kp.Mode = keyinfo.Mode or "Toggle"
-                    kp.SyncToggleState = keyinfo.SyncToggleState or false
-
-                    local KeyLbl = Instance.new("TextLabel")
-                    KeyLbl.Text = kp.Value.Name or ""
-                    KeyLbl.Font = Enum.Font.Gotham
-                    KeyLbl.TextSize = 11
-                    KeyLbl.TextColor3 = Theme.Muted
-                    KeyLbl.BackgroundTransparency = 1
-                    KeyLbl.Position = UDim2.new(1,-80,0,0)
-                    KeyLbl.Size = UDim2.fromOffset(60,36)
-                    KeyLbl.TextXAlignment = Enum.TextXAlignment.Right
-                    KeyLbl.Parent = Btn
-
-                    UIS.InputBegan:Connect(function(i,gp)
-                        if not gp and i.KeyCode == kp.Value then
-                            if kp.Mode == "Toggle" then
-                                T:SetValue(not T.Value)
-                            end
-                        end
-                    end)
-
-                    return kp
+                function Toggle:OnChanged(fn)
+                    Toggle._changed = fn
                 end
 
-                return T
+                Btn.MouseButton1Click:Connect(function()
+                    Toggle:SetValue(not Toggle.Value)
+                    if Toggle._changed then
+                        Toggle._changed(Toggle.Value)
+                    end
+                end)
+
+                -- KEYBIND SUPPORT
+                function Toggle:AddKeyPicker(flagKey, keyOpts)
+                    keyOpts = keyOpts or {}
+                    local KeyBind = {}
+                    Options[flagKey] = KeyBind
+                    KeyBind.Value = keyOpts.Default or ""
+                    KeyBind.Mode = keyOpts.Mode or "Toggle"
+                    KeyBind.SyncToggleState = keyOpts.SyncToggleState or false
+
+                    local KeyText = Instance.new("TextLabel")
+                    KeyText.Text = KeyBind.Value
+                    KeyText.Font = Enum.Font.Gotham
+                    KeyText.TextSize = 13
+                    KeyText.TextColor3 = SafeColor(Theme.Muted)
+                    KeyText.BackgroundTransparency = 1
+                    KeyText.Position = UDim2.fromOffset(200, 0)
+                    KeyText.Size = UDim2.new(1, -8, 1, 0)
+                    KeyText.TextXAlignment = Enum.TextXAlignment.Right
+                    KeyText.Parent = Btn
+
+                    function KeyBind:SetValue(k)
+                        KeyBind.Value = k
+                        KeyText.Text = k
+                    end
+
+                    return KeyBind
+                end
+
+                return Toggle
             end
 
-            return Group
-        end
-
-        function Tab:AddLeftGroupbox(name)
-            return createGroupbox(Left,name)
-        end
-
-        function Tab:AddRightGroupbox(name)
-            return createGroupbox(Right,name)
-        end
-
-        -- TAB DOT
-        local dot = Instance.new("TextButton")
-        dot.Size = UDim2.fromOffset(12,12)
-        dot.BackgroundColor3 = Theme.Accent
-        dot.Text = ""
-        dot.Parent = TabHolder
-        Round(dot,6)
-        dot.MouseButton1Click:Connect(function()
-            for _,v in pairs(Content:GetChildren()) do
-                v.Visible = false
-            end
-            Holder.Visible = true
-        end)
-
-        Window.Tabs[name] = Holder
-        if not Window.Current then
-            Window.Current = Holder
-            Holder.Visible = true
+            return Groupbox
         end
 
         return Tab
@@ -299,4 +288,5 @@ function Library:CreateWindow(info)
     return Window
 end
 
+-- RETURN LIB
 return Library
