@@ -1,83 +1,96 @@
 --[[
 
     OceanUI 🌊
-    Open Source | Rounded | Linoria-Style API
+    Open Source | Rounded | Linoria-Style
     Made for learning & extending
 
 ]]
 
 -- SERVICES
 local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+
 local LocalPlayer = Players.LocalPlayer
 
--- MAIN LIB
+-- LIB
 local Library = {}
 Library.__index = Library
 
--- GLOBAL TABLES (Linoria style)
+-- GLOBALS (Linoria style)
 getgenv().Toggles = {}
 getgenv().Options = {}
 
+-- CONFIG
+local ConfigFolder = "OceanUI_Configs"
+if not isfolder(ConfigFolder) then
+    makefolder(ConfigFolder)
+end
+
 -- THEME
 local Theme = {
-    Background = Color3.fromRGB(12, 18, 28),
-    Section = Color3.fromRGB(16, 25, 38),
-    Accent = Color3.fromRGB(0, 170, 255),
-    Text = Color3.fromRGB(235, 240, 245),
-    Muted = Color3.fromRGB(120, 130, 145),
-    Stroke = Color3.fromRGB(35, 55, 80),
+    Background = Color3.fromRGB(12,18,28),
+    Section = Color3.fromRGB(16,25,38),
+    Accent = Color3.fromRGB(0,170,255),
+    Text = Color3.fromRGB(235,240,245),
+    Muted = Color3.fromRGB(130,140,155),
+    Stroke = Color3.fromRGB(35,55,80)
 }
 
 -- UTILS
-local function Round(obj, r)
+local function Round(o,r)
     local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, r)
-    c.Parent = obj
+    c.CornerRadius = UDim.new(0,r)
+    c.Parent = o
 end
 
-local function Stroke(obj)
+local function Stroke(o)
     local s = Instance.new("UIStroke")
     s.Color = Theme.Stroke
     s.Thickness = 1
-    s.Parent = obj
+    s.Parent = o
 end
 
--- CREATE WINDOW
+-- WINDOW
 function Library:CreateWindow(info)
     info = info or {}
 
     local Window = {}
     Window.Tabs = {}
+    Window.Open = true
+    Window.MenuKey = Enum.KeyCode.RightShift
 
+    -- GUI
     local Gui = Instance.new("ScreenGui")
     Gui.Name = "OceanUI"
+    Gui.ResetOnSpawn = false
     Gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
     local Main = Instance.new("Frame")
-    Main.Size = UDim2.fromOffset(560, 400)
-    Main.Position = UDim2.fromScale(0.5, 0.5)
-    Main.AnchorPoint = Vector2.new(0.5, 0.5)
+    Main.Size = UDim2.fromOffset(600,420)
+    Main.Position = UDim2.fromScale(0.5,0.5)
+    Main.AnchorPoint = Vector2.new(0.5,0.5)
     Main.BackgroundColor3 = Theme.Background
     Main.Parent = Gui
-    Round(Main, 18)
+    Round(Main,18)
     Stroke(Main)
 
     -- HEADER
     local Header = Instance.new("Frame")
-    Header.Size = UDim2.new(1, 0, 0, 48)
+    Header.Size = UDim2.new(1,0,0,48)
     Header.BackgroundTransparency = 1
     Header.Parent = Main
 
     local Title = Instance.new("TextLabel")
-    Title.Text = info.Title or "Ocean"
+    Title.Text = info.Title or "OceanUI"
     Title.Font = Enum.Font.GothamBold
     Title.TextSize = 18
     Title.TextColor3 = Theme.Text
     Title.BackgroundTransparency = 1
-    Title.Position = UDim2.fromOffset(14, 0)
-    Title.Size = UDim2.new(1, -20, 1, 0)
-    Title.TextXAlignment = Left
+    Title.Position = UDim2.fromOffset(14,0)
+    Title.Size = UDim2.new(1,-20,1,0)
+    Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.Parent = Header
 
     local Version = Instance.new("TextLabel")
@@ -86,42 +99,74 @@ function Library:CreateWindow(info)
     Version.TextSize = 12
     Version.TextColor3 = info.VersionColor or Theme.Muted
     Version.BackgroundTransparency = 1
-    Version.Position = UDim2.new(1, -80, 0, 0)
-    Version.Size = UDim2.fromOffset(70, 48)
-    Version.TextXAlignment = Right
+    Version.Position = UDim2.new(1,-90,0,0)
+    Version.Size = UDim2.fromOffset(80,48)
+    Version.TextXAlignment = Enum.TextXAlignment.Right
     Version.Parent = Header
+
+    -- DRAG
+    do
+        local dragging, dragStart, startPos
+        Header.InputBegan:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = true
+                dragStart = i.Position
+                startPos = Main.Position
+                i.Changed:Connect(function()
+                    if i.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
+            end
+        end)
+        Header.InputChanged:Connect(function(i)
+            if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+                local d = i.Position - dragStart
+                Main.Position = UDim2.new(
+                    startPos.X.Scale,startPos.X.Offset+d.X,
+                    startPos.Y.Scale,startPos.Y.Offset+d.Y
+                )
+            end
+        end)
+    end
 
     -- CONTENT
     local Content = Instance.new("Frame")
-    Content.Size = UDim2.new(1, -20, 1, -58)
-    Content.Position = UDim2.fromOffset(10, 52)
+    Content.Size = UDim2.new(1,-20,1,-58)
+    Content.Position = UDim2.fromOffset(10,52)
     Content.BackgroundTransparency = 1
     Content.Parent = Main
+
+    -- TOGGLE MENU KEY
+    UIS.InputBegan:Connect(function(i,gp)
+        if not gp and i.KeyCode == Window.MenuKey then
+            Window.Open = not Window.Open
+            Main.Visible = Window.Open
+        end
+    end)
 
     -- ADD TAB
     function Window:AddTab(name)
         local Tab = {}
 
         local Holder = Instance.new("Frame")
-        Holder.Size = UDim2.fromScale(1, 1)
+        Holder.Size = UDim2.fromScale(1,1)
         Holder.BackgroundTransparency = 1
         Holder.Visible = false
         Holder.Parent = Content
 
-        -- left layout
-        local Left = Instance.new("UIListLayout")
-        Left.Padding = UDim.new(0, 10)
-        Left.HorizontalAlignment = Left
-        Left.Parent = Holder
+        local Layout = Instance.new("UIListLayout")
+        Layout.Padding = UDim.new(0,10)
+        Layout.Parent = Holder
 
         function Tab:AddLeftGroupbox(title)
-            local Groupbox = {}
+            local Group = {}
 
             local Box = Instance.new("Frame")
-            Box.Size = UDim2.fromOffset(260, 40)
             Box.BackgroundColor3 = Theme.Section
+            Box.Size = UDim2.fromOffset(270,40)
             Box.Parent = Holder
-            Round(Box, 14)
+            Round(Box,14)
             Stroke(Box)
 
             local Label = Instance.new("TextLabel")
@@ -130,94 +175,173 @@ function Library:CreateWindow(info)
             Label.TextSize = 14
             Label.TextColor3 = Theme.Text
             Label.BackgroundTransparency = 1
-            Label.Position = UDim2.fromOffset(12, 6)
-            Label.Size = UDim2.new(1, -24, 0, 24)
-            Label.TextXAlignment = Left
+            Label.Position = UDim2.fromOffset(12,6)
+            Label.Size = UDim2.new(1,-24,24)
+            Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.Parent = Box
 
             local List = Instance.new("UIListLayout")
-            List.Padding = UDim.new(0, 8)
+            List.Padding = UDim.new(0,8)
             List.Parent = Box
-            List.HorizontalAlignment = Left
-            List.VerticalAlignment = Top
 
             List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                Box.Size = UDim2.fromOffset(260, List.AbsoluteContentSize.Y + 14)
+                Box.Size = UDim2.fromOffset(270, List.AbsoluteContentSize.Y + 14)
             end)
 
-            -- ADD TOGGLE
-            function Groupbox:AddToggle(flag, opts)
+            -- TOGGLE
+            function Group:AddToggle(flag,opts)
                 opts = opts or {}
-                local Toggle = {}
-                Toggle.Value = opts.Default or false
-
-                Toggles[flag] = Toggle
+                local T = {Value = opts.Default or false}
+                Toggles[flag] = T
 
                 local Btn = Instance.new("TextButton")
-                Btn.Size = UDim2.new(1, -16, 0, 36)
+                Btn.Size = UDim2.new(1,-16,0,36)
                 Btn.BackgroundColor3 = Theme.Background
                 Btn.Text = ""
-                Btn.AutoButtonColor = false
                 Btn.Parent = Box
-                Round(Btn, 10)
+                Round(Btn,10)
                 Stroke(Btn)
 
-                local Text = Instance.new("TextLabel")
-                Text.Text = opts.Text or flag
-                Text.Font = Enum.Font.Gotham
-                Text.TextSize = 13
-                Text.TextColor3 = Theme.Text
-                Text.BackgroundTransparency = 1
-                Text.Position = UDim2.fromOffset(12, 0)
-                Text.Size = UDim2.new(1, -60, 1, 0)
-                Text.TextXAlignment = Left
-                Text.Parent = Btn
+                local Txt = Instance.new("TextLabel")
+                Txt.Text = opts.Text or flag
+                Txt.Font = Enum.Font.Gotham
+                Txt.TextSize = 13
+                Txt.TextColor3 = Theme.Text
+                Txt.BackgroundTransparency = 1
+                Txt.Position = UDim2.fromOffset(12,0)
+                Txt.Size = UDim2.new(1,-60,1,0)
+                Txt.TextXAlignment = Enum.TextXAlignment.Left
+                Txt.Parent = Btn
 
-                local Indicator = Instance.new("Frame")
-                Indicator.Size = UDim2.fromOffset(22, 22)
-                Indicator.Position = UDim2.new(1, -32, 0.5, -11)
-                Indicator.BackgroundColor3 = Toggle.Value and Theme.Accent or Theme.Stroke
-                Indicator.Parent = Btn
-                Round(Indicator, 6)
+                local Ind = Instance.new("Frame")
+                Ind.Size = UDim2.fromOffset(22,22)
+                Ind.Position = UDim2.new(1,-32,0.5,-11)
+                Ind.BackgroundColor3 = T.Value and Theme.Accent or Theme.Stroke
+                Ind.Parent = Btn
+                Round(Ind,6)
 
-                function Toggle:SetValue(v)
-                    Toggle.Value = v
-                    TweenService:Create(
-                        Indicator,
-                        TweenInfo.new(0.15),
-                        { BackgroundColor3 = v and Theme.Accent or Theme.Stroke }
-                    ):Play()
+                function T:SetValue(v)
+                    T.Value = v
+                    TweenService:Create(Ind,TweenInfo.new(0.15),{
+                        BackgroundColor3 = v and Theme.Accent or Theme.Stroke
+                    }):Play()
                     if opts.Callback then opts.Callback(v) end
                 end
 
-                function Toggle:OnChanged(fn)
-                    Toggle._changed = fn
-                end
+                Btn.MouseButton1Click:Connect(function()
+                    T:SetValue(not T.Value)
+                end)
+
+                return T
+            end
+
+            -- BUTTON
+            function Group:AddButton(text,cb)
+                local Btn = Instance.new("TextButton")
+                Btn.Size = UDim2.new(1,-16,0,34)
+                Btn.BackgroundColor3 = Theme.Accent
+                Btn.Text = text
+                Btn.Font = Enum.Font.GothamBold
+                Btn.TextSize = 13
+                Btn.TextColor3 = Color3.new(1,1,1)
+                Btn.Parent = Box
+                Round(Btn,10)
 
                 Btn.MouseButton1Click:Connect(function()
-                    Toggle:SetValue(not Toggle.Value)
-                    if Toggle._changed then
-                        Toggle._changed(Toggle.Value)
+                    if cb then cb() end
+                end)
+            end
+
+            -- SLIDER
+            function Group:AddSlider(flag,opts)
+                opts = opts or {}
+                local S = {Value = opts.Default or opts.Min or 0}
+                Options[flag] = S
+
+                local Holder = Instance.new("Frame")
+                Holder.Size = UDim2.new(1,-16,0,42)
+                Holder.BackgroundTransparency = 1
+                Holder.Parent = Box
+
+                local Txt = Instance.new("TextLabel")
+                Txt.Text = opts.Text or flag
+                Txt.Font = Enum.Font.Gotham
+                Txt.TextSize = 13
+                Txt.TextColor3 = Theme.Text
+                Txt.BackgroundTransparency = 1
+                Txt.Size = UDim2.new(1,0,0,18)
+                Txt.TextXAlignment = Enum.TextXAlignment.Left
+                Txt.Parent = Holder
+
+                local Bar = Instance.new("Frame")
+                Bar.Position = UDim2.fromOffset(0,24)
+                Bar.Size = UDim2.new(1,0,0,8)
+                Bar.BackgroundColor3 = Theme.Stroke
+                Bar.Parent = Holder
+                Round(Bar,4)
+
+                local Fill = Instance.new("Frame")
+                Fill.Size = UDim2.new(0,0,1,0)
+                Fill.BackgroundColor3 = Theme.Accent
+                Fill.Parent = Bar
+                Round(Fill,4)
+
+                local dragging = false
+                Bar.InputBegan:Connect(function(i)
+                    if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
+                end)
+                UIS.InputEnded:Connect(function(i)
+                    if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+                end)
+                UIS.InputChanged:Connect(function(i)
+                    if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+                        local pct = math.clamp((i.Position.X - Bar.AbsolutePosition.X)/Bar.AbsoluteSize.X,0,1)
+                        S.Value = math.floor(opts.Min + (opts.Max-opts.Min)*pct)
+                        Fill.Size = UDim2.new(pct,0,1,0)
+                        if opts.Callback then opts.Callback(S.Value) end
                     end
                 end)
 
-                return Toggle
+                return S
             end
 
-            return Groupbox
+            return Group
         end
 
         Window.Tabs[name] = Tab
-        if not Window.CurrentTab then
-            Window.CurrentTab = Holder
+        if not Window.Current then
+            Window.Current = Holder
             Holder.Visible = true
         end
 
         return Tab
     end
 
+    -- UI SETTINGS TAB
+    local UITab = Window:AddTab("UI Settings")
+    local UIBox = UITab:AddLeftGroupbox("Menu")
+
+    UIBox:AddButton("Toggle UI", function()
+        Window.Open = not Window.Open
+        Main.Visible = Window.Open
+    end)
+
+    UIBox:AddButton("Save Config", function()
+        local data = {}
+        for k,v in pairs(Toggles) do data[k] = v.Value end
+        writefile(ConfigFolder.."/default.json",HttpService:JSONEncode(data))
+    end)
+
+    UIBox:AddButton("Load Config", function()
+        if isfile(ConfigFolder.."/default.json") then
+            local data = HttpService:JSONDecode(readfile(ConfigFolder.."/default.json"))
+            for k,v in pairs(data) do
+                if Toggles[k] then Toggles[k]:SetValue(v) end
+            end
+        end
+    end)
+
     return Window
 end
 
--- RETURN LIB
 return Library
