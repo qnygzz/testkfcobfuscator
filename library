@@ -1,0 +1,223 @@
+--[[
+
+    OceanUI 🌊
+    Open Source | Rounded | Linoria-Style API
+    Made for learning & extending
+
+]]
+
+-- SERVICES
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+-- MAIN LIB
+local Library = {}
+Library.__index = Library
+
+-- GLOBAL TABLES (Linoria style)
+getgenv().Toggles = {}
+getgenv().Options = {}
+
+-- THEME
+local Theme = {
+    Background = Color3.fromRGB(12, 18, 28),
+    Section = Color3.fromRGB(16, 25, 38),
+    Accent = Color3.fromRGB(0, 170, 255),
+    Text = Color3.fromRGB(235, 240, 245),
+    Muted = Color3.fromRGB(120, 130, 145),
+    Stroke = Color3.fromRGB(35, 55, 80),
+}
+
+-- UTILS
+local function Round(obj, r)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r)
+    c.Parent = obj
+end
+
+local function Stroke(obj)
+    local s = Instance.new("UIStroke")
+    s.Color = Theme.Stroke
+    s.Thickness = 1
+    s.Parent = obj
+end
+
+-- CREATE WINDOW
+function Library:CreateWindow(info)
+    info = info or {}
+
+    local Window = {}
+    Window.Tabs = {}
+
+    local Gui = Instance.new("ScreenGui")
+    Gui.Name = "OceanUI"
+    Gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+    local Main = Instance.new("Frame")
+    Main.Size = UDim2.fromOffset(560, 400)
+    Main.Position = UDim2.fromScale(0.5, 0.5)
+    Main.AnchorPoint = Vector2.new(0.5, 0.5)
+    Main.BackgroundColor3 = Theme.Background
+    Main.Parent = Gui
+    Round(Main, 18)
+    Stroke(Main)
+
+    -- HEADER
+    local Header = Instance.new("Frame")
+    Header.Size = UDim2.new(1, 0, 0, 48)
+    Header.BackgroundTransparency = 1
+    Header.Parent = Main
+
+    local Title = Instance.new("TextLabel")
+    Title.Text = info.Title or "Ocean"
+    Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 18
+    Title.TextColor3 = Theme.Text
+    Title.BackgroundTransparency = 1
+    Title.Position = UDim2.fromOffset(14, 0)
+    Title.Size = UDim2.new(1, -20, 1, 0)
+    Title.TextXAlignment = Left
+    Title.Parent = Header
+
+    local Version = Instance.new("TextLabel")
+    Version.Text = info.Version or ""
+    Version.Font = Enum.Font.Gotham
+    Version.TextSize = 12
+    Version.TextColor3 = info.VersionColor or Theme.Muted
+    Version.BackgroundTransparency = 1
+    Version.Position = UDim2.new(1, -80, 0, 0)
+    Version.Size = UDim2.fromOffset(70, 48)
+    Version.TextXAlignment = Right
+    Version.Parent = Header
+
+    -- CONTENT
+    local Content = Instance.new("Frame")
+    Content.Size = UDim2.new(1, -20, 1, -58)
+    Content.Position = UDim2.fromOffset(10, 52)
+    Content.BackgroundTransparency = 1
+    Content.Parent = Main
+
+    -- ADD TAB
+    function Window:AddTab(name)
+        local Tab = {}
+
+        local Holder = Instance.new("Frame")
+        Holder.Size = UDim2.fromScale(1, 1)
+        Holder.BackgroundTransparency = 1
+        Holder.Visible = false
+        Holder.Parent = Content
+
+        -- left layout
+        local Left = Instance.new("UIListLayout")
+        Left.Padding = UDim.new(0, 10)
+        Left.HorizontalAlignment = Left
+        Left.Parent = Holder
+
+        function Tab:AddLeftGroupbox(title)
+            local Groupbox = {}
+
+            local Box = Instance.new("Frame")
+            Box.Size = UDim2.fromOffset(260, 40)
+            Box.BackgroundColor3 = Theme.Section
+            Box.Parent = Holder
+            Round(Box, 14)
+            Stroke(Box)
+
+            local Label = Instance.new("TextLabel")
+            Label.Text = title
+            Label.Font = Enum.Font.GothamBold
+            Label.TextSize = 14
+            Label.TextColor3 = Theme.Text
+            Label.BackgroundTransparency = 1
+            Label.Position = UDim2.fromOffset(12, 6)
+            Label.Size = UDim2.new(1, -24, 0, 24)
+            Label.TextXAlignment = Left
+            Label.Parent = Box
+
+            local List = Instance.new("UIListLayout")
+            List.Padding = UDim.new(0, 8)
+            List.Parent = Box
+            List.HorizontalAlignment = Left
+            List.VerticalAlignment = Top
+
+            List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                Box.Size = UDim2.fromOffset(260, List.AbsoluteContentSize.Y + 14)
+            end)
+
+            -- ADD TOGGLE
+            function Groupbox:AddToggle(flag, opts)
+                opts = opts or {}
+                local Toggle = {}
+                Toggle.Value = opts.Default or false
+
+                Toggles[flag] = Toggle
+
+                local Btn = Instance.new("TextButton")
+                Btn.Size = UDim2.new(1, -16, 0, 36)
+                Btn.BackgroundColor3 = Theme.Background
+                Btn.Text = ""
+                Btn.AutoButtonColor = false
+                Btn.Parent = Box
+                Round(Btn, 10)
+                Stroke(Btn)
+
+                local Text = Instance.new("TextLabel")
+                Text.Text = opts.Text or flag
+                Text.Font = Enum.Font.Gotham
+                Text.TextSize = 13
+                Text.TextColor3 = Theme.Text
+                Text.BackgroundTransparency = 1
+                Text.Position = UDim2.fromOffset(12, 0)
+                Text.Size = UDim2.new(1, -60, 1, 0)
+                Text.TextXAlignment = Left
+                Text.Parent = Btn
+
+                local Indicator = Instance.new("Frame")
+                Indicator.Size = UDim2.fromOffset(22, 22)
+                Indicator.Position = UDim2.new(1, -32, 0.5, -11)
+                Indicator.BackgroundColor3 = Toggle.Value and Theme.Accent or Theme.Stroke
+                Indicator.Parent = Btn
+                Round(Indicator, 6)
+
+                function Toggle:SetValue(v)
+                    Toggle.Value = v
+                    TweenService:Create(
+                        Indicator,
+                        TweenInfo.new(0.15),
+                        { BackgroundColor3 = v and Theme.Accent or Theme.Stroke }
+                    ):Play()
+                    if opts.Callback then opts.Callback(v) end
+                end
+
+                function Toggle:OnChanged(fn)
+                    Toggle._changed = fn
+                end
+
+                Btn.MouseButton1Click:Connect(function()
+                    Toggle:SetValue(not Toggle.Value)
+                    if Toggle._changed then
+                        Toggle._changed(Toggle.Value)
+                    end
+                end)
+
+                return Toggle
+            end
+
+            return Groupbox
+        end
+
+        Window.Tabs[name] = Tab
+        if not Window.CurrentTab then
+            Window.CurrentTab = Holder
+            Holder.Visible = true
+        end
+
+        return Tab
+    end
+
+    return Window
+end
+
+-- RETURN LIB
+return Library
